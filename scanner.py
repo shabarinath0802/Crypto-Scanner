@@ -32,7 +32,7 @@ EXCLUDE_KEYWORDS = ("UP", "DOWN", "BULL", "BEAR")  # skip leveraged tokens
 REQUEST_PAUSE = 0.08       # seconds between API calls, keeps us under Binance rate limits
 # ----------------------------------------------
 
-BINANCE_BASE = "https://api.binance.com"
+BINANCE_BASE = "https://data-api.binance.vision"
 
 
 def get_usdt_symbols():

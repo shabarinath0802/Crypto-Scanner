@@ -39,6 +39,8 @@ def get_usdt_symbols():
     """Return all actively trading spot pairs quoted in USDT, excluding leveraged tokens."""
     url = f"{BINANCE_BASE}/api/v3/exchangeInfo"
     data = requests.get(url, timeout=15).json()
+    if "symbols" not in data:
+        raise RuntimeError(f"Binance did not return coin data. Response was: {data}")
     symbols = []
     for s in data["symbols"]:
         if (

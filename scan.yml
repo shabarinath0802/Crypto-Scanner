@@ -1,0 +1,29 @@
+name: Crypto 1H Signal Scanner
+
+on:
+  schedule:
+    # Runs at 5 minutes past every hour (UTC), so the 1H candle has fully closed
+    - cron: "5 * * * *"
+  workflow_dispatch: {}   # lets you also trigger it manually from the GitHub Actions tab
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scanner
+        env:
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python scanner.py

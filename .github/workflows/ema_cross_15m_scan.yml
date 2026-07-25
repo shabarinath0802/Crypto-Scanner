@@ -1,0 +1,28 @@
+name: 15m EMA55 Breakdown Scanner
+
+on:
+  schedule:
+    - cron: "1,16,31,46 * * * *"   # 1 minute after each 15m candle closes (:00, :15, :30, :45)
+  workflow_dispatch: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run 15m EMA55 breakdown scanner
+        env:
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python ema_cross_15m_scanner.py

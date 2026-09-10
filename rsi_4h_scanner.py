@@ -4,7 +4,7 @@ Crypto 4H RSI Extreme Scanner
 Every 5 minutes (the fastest GitHub Actions allows), checks the LIVE
 (still-forming) 4-hour candle's RSI for every USDT pair on Binance.
 Emails you coins where RSI has crossed:
-  - above 95 (overbought), or
+  - above 90 (overbought), or
   - below 5 (oversold)
 
 Remembers what it already alerted on (separately for each direction)
@@ -25,7 +25,7 @@ import requests
 INTERVAL = "4h"
 CANDLE_LIMIT = 50
 RSI_LEN = 14
-OVERBOUGHT = 95
+OVERBOUGHT = 90
 OVERSOLD = 5
 QUOTE_ASSET = "USDT"
 EXCLUDE_KEYWORDS = ("UP", "DOWN", "BULL", "BEAR")

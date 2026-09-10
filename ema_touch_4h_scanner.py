@@ -9,6 +9,7 @@ the 4-hour timeframe:
   2. PRICE TOUCH: the current, still-forming 4H candle's price range
      (low to high) touches the EMA55 level -- i.e. price has pulled
      back down to the EMA55 "support" line.
+  3. VOLUME: 24h trading volume must be above $50M (liquidity filter).
 
 Emails you the list of coins where this is happening right now.
 
@@ -36,9 +37,17 @@ QUOTE_ASSET = "USDT"
 EXCLUDE_KEYWORDS = ("UP", "DOWN", "BULL", "BEAR")
 REQUEST_PAUSE = 0.08
 STATE_FILE = "ema_touch_4h_state.json"
+MIN_VOLUME_USD = 50_000_000   # only scan coins with at least this much 24h trading volume
 # ----------------------------------------------
 
 BINANCE_BASE = "https://data-api.binance.vision"
+
+
+def get_24h_volumes():
+    """Return {symbol: 24h quote volume in USD} for every symbol, in one call."""
+    url = f"{BINANCE_BASE}/api/v3/ticker/24hr"
+    data = requests.get(url, timeout=20).json()
+    return {item["symbol"]: float(item["quoteVolume"]) for item in data if "symbol" in item and "quoteVolume" in item}
 
 
 def get_usdt_symbols():
@@ -134,7 +143,9 @@ def send_email(hits):
 
 def main():
     symbols = get_usdt_symbols()
-    print(f"Checking {len(symbols)} USDT pairs on {INTERVAL} candles for EMA55 support touch...")
+    volumes = get_24h_volumes()
+    symbols = [s for s in symbols if volumes.get(s, 0) > MIN_VOLUME_USD]
+    print(f"Checking {len(symbols)} USDT pairs (24h volume > ${MIN_VOLUME_USD:,.0f}) on {INTERVAL} candles for EMA55 support touch...")
 
     state = load_state()
     new_hits = []

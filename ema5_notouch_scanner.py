@@ -1,16 +1,14 @@
 """
-Crypto 15m EMA55 Breakdown Scanner
-------------------------------------
-Scans every USDT pair on Binance. On the most recently CLOSED 15-minute
-candle, checks whether EMA55 has just crossed BELOW all three of
-EMA8, EMA13, and EMA21 (i.e. it was at/above at least one of them on
-the prior candle, and is now below all three). Emails you the list of
-coins where this just happened.
+Crypto 5m EMA5 No-Touch Scanner
+-----------------------------------
+Scans every USDT pair on Binance. On the most recently CLOSED 5-minute
+candle, checks whether the candle stayed entirely ABOVE the EMA5 line
+-- i.e. its low never touched or dipped down to EMA5. This flags clean,
+strong bullish candles with no pullback to the average.
 
-Runs once per 15-minute candle close via GitHub Actions (:01, :16, :31,
-:46) -- no persistent memory needed, since a fresh cross only happens
-once per transition and this schedule naturally prevents repeat alerts
-for the same cross.
+Runs once per 5-minute candle close via GitHub Actions (:01, :06, :11,
+etc.) -- no persistent memory needed, since each run checks a fresh
+closed candle and naturally won't repeat.
 """
 
 import os
@@ -21,11 +19,9 @@ from email.mime.text import MIMEText
 import requests
 
 # ---------- Settings you can tweak ----------
-INTERVAL = "15m"
-CANDLE_LIMIT = 100         # need enough history for EMA55 to be accurate
-EMA_LENGTHS = [8, 13, 21, 55]
-LONG_EMA = 55
-SHORT_EMAS = [8, 13, 21]
+INTERVAL = "5m"
+CANDLE_LIMIT = 50
+EMA_LEN = 5
 QUOTE_ASSET = "USDT"
 EXCLUDE_KEYWORDS = ("UP", "DOWN", "BULL", "BEAR")
 REQUEST_PAUSE = 0.08
@@ -68,42 +64,33 @@ def ema(values, length):
 
 
 def check_signal(symbol):
-    """Return True if EMA55 just crossed below EMA8, EMA13, and EMA21 on the last closed candle."""
+    """Return True if the last closed candle stayed entirely above EMA5 (no touch)."""
     klines = get_klines(symbol)
     if len(klines) < CANDLE_LIMIT:
         return False
 
-    # Drop the last kline -- it's the still-forming (unclosed) current candle
-    closed = klines[:-1]
-    closes = [float(k[4]) for k in closed]
-
-    if len(closes) < LONG_EMA + 2:
+    closed = klines[:-1]  # drop the still-forming current candle
+    if len(closed) < EMA_LEN + 2:
         return False
 
-    emas = {length: ema(closes, length) for length in EMA_LENGTHS}
+    closes = [float(k[4]) for k in closed]
+    ema5_series = ema(closes, EMA_LEN)
 
-    prev_long = emas[LONG_EMA][-2]
-    curr_long = emas[LONG_EMA][-1]
+    last_candle_low = float(closed[-1][3])
+    last_ema5 = ema5_series[-1]
 
-    prev_shorts = [emas[length][-2] for length in SHORT_EMAS]
-    curr_shorts = [emas[length][-1] for length in SHORT_EMAS]
-
-    was_below_all = all(prev_long < s for s in prev_shorts)
-    is_below_all = all(curr_long < s for s in curr_shorts)
-
-    # Fresh cross: wasn't below all three before, but is below all three now
-    return is_below_all and not was_below_all
+    return last_candle_low > last_ema5
 
 
 def send_email(symbols):
     sender = os.environ["EMAIL_FROM"]
     password = os.environ["EMAIL_APP_PASSWORD"]
-    recipient = os.environ["EMAIL_TO"]
+    recipient = os.environ["EMAIL_TO_EMA5"]
 
-    body = "EMA55 just crossed BELOW EMA8, EMA13, and EMA21 on the 15m candle for:\n\n" + "\n".join(symbols)
+    body = "Candle stayed above EMA5 (no touch) on the 5m candle for:\n\n" + "\n".join(symbols)
 
     msg = MIMEText(body)
-    msg["Subject"] = f"15m EMA55 Breakdown Alert ({len(symbols)} coins)"
+    msg["Subject"] = f"5m EMA5 No-Touch Alert ({len(symbols)} coins)"
     msg["From"] = sender
     msg["To"] = recipient
 
@@ -114,14 +101,14 @@ def send_email(symbols):
 
 def main():
     symbols = get_usdt_symbols()
-    print(f"Scanning {len(symbols)} USDT pairs on {INTERVAL} candles for EMA55 breakdown...")
+    print(f"Scanning {len(symbols)} USDT pairs on {INTERVAL} candles for EMA5 no-touch...")
 
     hits = []
     for symbol in symbols:
         try:
             if check_signal(symbol):
                 hits.append(symbol)
-                print(f"  -> {symbol}: EMA55 crossed below EMA8/13/21")
+                print(f"  -> {symbol}: candle stayed above EMA5")
         except Exception as e:
             print(f"  ! {symbol} skipped ({e})")
         time.sleep(REQUEST_PAUSE)
@@ -132,7 +119,7 @@ def main():
         send_email(hits)
         print("Email sent.")
     else:
-        print("No email sent (no breakdowns this candle).")
+        print("No email sent (no matches this candle).")
 
 
 if __name__ == "__main__":

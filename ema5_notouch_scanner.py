@@ -77,9 +77,9 @@ def check_signal(symbol):
     ema5_series = ema(closes, EMA_LEN)
 
     last_candle_low = float(closed[-1][3])
-last_ema5 = ema5_series[-1]
+    last_ema5 = ema5_series[-1]
 
-return last_candle_low > last_ema5
+    return last_candle_low > last_ema5
 
 
 def send_email(symbols):

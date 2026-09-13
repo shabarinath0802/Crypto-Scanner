@@ -1,19 +1,16 @@
 """
 Crypto 4H RSI Extreme Scanner
 --------------------------------
-Every 5 minutes (the fastest GitHub Actions allows), checks the LIVE
-(still-forming) 4-hour candle's RSI for every USDT pair on Binance.
-Emails you coins where RSI has crossed:
-  - above 90 (overbought), or
+Every 5 minutes, checks the LIVE (still-forming) 4-hour candle's RSI
+for every USDT pair on Binance. Emails you coins where RSI has crossed:
+  - above 95 (overbought), or
   - below 5 (oversold)
 
-Remembers what it already alerted on (separately for each direction)
-so you get ONE email per fresh cross, not a repeat every 5 minutes
-while a coin sits at the extreme. Resets automatically once RSI moves
-back into the normal range, so a fresh cross will alert again.
+NOTE: no duplicate prevention -- it will email you again every single
+run (every 5 minutes) for as long as a coin keeps meeting the
+condition, as requested.
 """
 
-import json
 import os
 import smtplib
 import time
@@ -25,12 +22,11 @@ import requests
 INTERVAL = "4h"
 CANDLE_LIMIT = 50
 RSI_LEN = 14
-OVERBOUGHT = 90
+OVERBOUGHT = 95
 OVERSOLD = 5
 QUOTE_ASSET = "USDT"
 EXCLUDE_KEYWORDS = ("UP", "DOWN", "BULL", "BEAR")
 REQUEST_PAUSE = 0.08
-STATE_FILE = "rsi_4h_state.json"
 # ----------------------------------------------
 
 BINANCE_BASE = "https://data-api.binance.vision"
@@ -93,18 +89,6 @@ def get_live_rsi(symbol):
     return rsi(closes, RSI_LEN)
 
 
-def load_state():
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE) as f:
-            return json.load(f)
-    return {}
-
-
-def save_state(state):
-    with open(STATE_FILE, "w") as f:
-        json.dump(state, f)
-
-
 def send_email(overbought_list, oversold_list):
     sender = os.environ["EMAIL_FROM"]
     password = os.environ["EMAIL_APP_PASSWORD"]
@@ -135,9 +119,8 @@ def main():
     symbols = get_usdt_symbols()
     print(f"Checking live 4H RSI on {len(symbols)} USDT pairs...")
 
-    state = load_state()
-    new_overbought = []
-    new_oversold = []
+    overbought = []
+    oversold = []
 
     for symbol in symbols:
         try:
@@ -145,38 +128,24 @@ def main():
             if value is None:
                 continue
 
-            sym_state = state.get(symbol, {"overbought": False, "oversold": False})
-
-            # Overbought side
-            if value > OVERBOUGHT and not sym_state["overbought"]:
-                new_overbought.append((symbol, value))
-                sym_state["overbought"] = True
-                print(f"  -> {symbol}: RSI {value:.1f} (NEW overbought)")
-            elif value <= OVERBOUGHT and sym_state["overbought"]:
-                sym_state["overbought"] = False
-
-            # Oversold side
-            if value < OVERSOLD and not sym_state["oversold"]:
-                new_oversold.append((symbol, value))
-                sym_state["oversold"] = True
-                print(f"  -> {symbol}: RSI {value:.1f} (NEW oversold)")
-            elif value >= OVERSOLD and sym_state["oversold"]:
-                sym_state["oversold"] = False
-
-            state[symbol] = sym_state
+            if value > OVERBOUGHT:
+                overbought.append((symbol, value))
+                print(f"  -> {symbol}: RSI {value:.1f} (overbought)")
+            elif value < OVERSOLD:
+                oversold.append((symbol, value))
+                print(f"  -> {symbol}: RSI {value:.1f} (oversold)")
         except Exception as e:
             print(f"  ! {symbol} skipped ({e})")
         time.sleep(REQUEST_PAUSE)
 
-    save_state(state)
-    total = len(new_overbought) + len(new_oversold)
-    print(f"Done. {total} new extreme alert(s).")
+    total = len(overbought) + len(oversold)
+    print(f"Done. {total} coin(s) meeting the condition.")
 
     if total:
-        send_email(new_overbought, new_oversold)
+        send_email(overbought, oversold)
         print("Email sent.")
     else:
-        print("No email sent (no new extremes this run).")
+        print("No email sent (no coins meeting the condition this run).")
 
 
 if __name__ == "__main__":

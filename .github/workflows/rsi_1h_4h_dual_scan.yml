@@ -1,0 +1,28 @@
+name: 1H+4H RSI Dual Overbought Scanner
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # every 5 minutes -- the fastest GitHub Actions allows
+  workflow_dispatch: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run 1H+4H RSI dual scanner
+        env:
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python rsi_1h_4h_dual_scanner.py
